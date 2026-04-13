@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "codebase-rag": {
+      "command": "c:/WORK/voicescribe/.tausik/venv/Scripts/python.exe",
+      "args": [
+        "c:/WORK/voicescribe/.claude/mcp/codebase-rag/server.py",
+        "--project",
+        "c:/WORK/voicescribe"
+      ]
+    },
+    "tausik-project": {
+      "command": "c:/WORK/voicescribe/.tausik/venv/Scripts/python.exe",
+      "args": [
+        "c:/WORK/voicescribe/.claude/mcp/project/server.py",
+        "--project",
+        "c:/WORK/voicescribe"
+      ]
+    }
+  }
+}
