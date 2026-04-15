@@ -4,6 +4,8 @@ from aiogram import F, Router
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 
+import transcriber
+
 logger = logging.getLogger(__name__)
 
 router = Router()
@@ -21,6 +23,8 @@ UNSUPPORTED_TEXT = (
     "Пришли голосовое — расшифрую."
 )
 
+TRANSCRIPTION_ERROR_TEXT = "Не удалось расшифровать аудио. Попробуй ещё раз."
+
 
 @router.message(CommandStart())
 async def cmd_start(message: Message) -> None:
@@ -34,7 +38,14 @@ async def handle_voice(message: Message) -> None:
     audio_bytes = await message.bot.download_file(file.file_path)
     data: bytes = audio_bytes.read()
     logger.info("Voice received: %d bytes, file_id=%s", len(data), message.voice.file_id)
-    # TODO Sprint 2: передать data в transcriber
+    try:
+        text = transcriber.transcribe(data)
+        await message.answer(text)
+    except ValueError as e:
+        await message.answer(str(e))
+    except Exception:
+        logger.exception("Transcription failed for voice file_id=%s", message.voice.file_id)
+        await message.answer(TRANSCRIPTION_ERROR_TEXT)
 
 
 @router.message(F.audio)
@@ -44,7 +55,14 @@ async def handle_audio(message: Message) -> None:
     audio_bytes = await message.bot.download_file(file.file_path)
     data: bytes = audio_bytes.read()
     logger.info("Audio received: %d bytes, file_id=%s", len(data), message.audio.file_id)
-    # TODO Sprint 2: передать data в transcriber
+    try:
+        text = transcriber.transcribe(data)
+        await message.answer(text)
+    except ValueError as e:
+        await message.answer(str(e))
+    except Exception:
+        logger.exception("Transcription failed for audio file_id=%s", message.audio.file_id)
+        await message.answer(TRANSCRIPTION_ERROR_TEXT)
 
 
 @router.message()
