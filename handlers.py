@@ -1,9 +1,17 @@
 import logging
+from datetime import datetime, timezone
 
 from aiogram import F, Router
 from aiogram.filters import CommandStart
-from aiogram.types import Message
+from aiogram.types import (
+    BufferedInputFile,
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+)
 
+import exporter
 import transcriber
 
 logger = logging.getLogger(__name__)
@@ -24,6 +32,17 @@ UNSUPPORTED_TEXT = (
 )
 
 TRANSCRIPTION_ERROR_TEXT = "Не удалось расшифровать аудио. Попробуй ещё раз."
+NO_TRANSCRIPTION_TEXT = "Нет сохранённой транскрипции. Сначала пришли голосовое или аудио."
+
+# Last transcription per user: {user_id: (text, datetime)}
+user_texts: dict[int, tuple[str, datetime]] = {}
+
+
+def _export_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="📄 TXT", callback_data="export_txt"),
+        InlineKeyboardButton(text="📑 PDF", callback_data="export_pdf"),
+    ]])
 
 
 @router.message(CommandStart())
@@ -40,7 +59,9 @@ async def handle_voice(message: Message) -> None:
     logger.info("Voice received: %d bytes, file_id=%s", len(data), message.voice.file_id)
     try:
         text = transcriber.transcribe(data)
-        await message.answer(text)
+        dt = datetime.now(timezone.utc)
+        user_texts[message.from_user.id] = (text, dt)
+        await message.answer(text, reply_markup=_export_keyboard())
     except ValueError as e:
         await message.answer(str(e))
     except Exception:
@@ -57,12 +78,42 @@ async def handle_audio(message: Message) -> None:
     logger.info("Audio received: %d bytes, file_id=%s", len(data), message.audio.file_id)
     try:
         text = transcriber.transcribe(data)
-        await message.answer(text)
+        dt = datetime.now(timezone.utc)
+        user_texts[message.from_user.id] = (text, dt)
+        await message.answer(text, reply_markup=_export_keyboard())
     except ValueError as e:
         await message.answer(str(e))
     except Exception:
         logger.exception("Transcription failed for audio file_id=%s", message.audio.file_id)
         await message.answer(TRANSCRIPTION_ERROR_TEXT)
+
+
+@router.callback_query(F.data == "export_txt")
+async def callback_export_txt(query: CallbackQuery) -> None:
+    await query.answer()
+    entry = user_texts.get(query.from_user.id)
+    if not entry:
+        await query.message.answer(NO_TRANSCRIPTION_TEXT)
+        return
+    text, dt = entry
+    data, filename = exporter.to_txt(text, dt)
+    await query.message.answer_document(
+        BufferedInputFile(data, filename=filename),
+    )
+
+
+@router.callback_query(F.data == "export_pdf")
+async def callback_export_pdf(query: CallbackQuery) -> None:
+    await query.answer()
+    entry = user_texts.get(query.from_user.id)
+    if not entry:
+        await query.message.answer(NO_TRANSCRIPTION_TEXT)
+        return
+    text, dt = entry
+    data, filename = exporter.to_pdf(text, dt)
+    await query.message.answer_document(
+        BufferedInputFile(data, filename=filename),
+    )
 
 
 @router.message()
