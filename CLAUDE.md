@@ -31,7 +31,6 @@ See `.claude/references/skill-catalog.md` for the full catalog with trigger keyw
 
 <!-- DYNAMIC:START -->
 ## Current State
-Session: #5 (active) | Branch: main | Version: 1.1.0
-Tasks: 2/4 done, 2 active, 0 blocked
-Active: sprint-2-groq-whisper, sprint-3-txt-pdf
+Session: none | Branch: main | Version: 1.1.0
+Tasks: 4/4 done, 0 active, 0 blocked
 <!-- DYNAMIC:END -->
