@@ -1,9 +1,16 @@
 import argparse
+import asyncio
+import logging
 import os
 
+from aiogram import Bot, Dispatcher
 from dotenv import load_dotenv
 
+import handlers
+
 load_dotenv()
+
+logging.basicConfig(level=logging.INFO)
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -29,7 +36,7 @@ def get_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> None:
+async def main() -> None:
     parser = get_parser()
     args = parser.parse_args()
 
@@ -38,9 +45,13 @@ def main() -> None:
     if not args.groq_key:
         parser.error("GROQ_API_KEY is required. Set it in .env or pass --groq-key")
 
-    print(f"Starting VoiceScribe Bot...")
-    print(f"Token: {args.token[:10]}...")
+    bot = Bot(token=args.token)
+    dp = Dispatcher()
+    dp.include_router(handlers.router)
+
+    print("Starting VoiceScribe Bot...")
+    await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
