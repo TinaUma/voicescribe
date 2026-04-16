@@ -33,9 +33,27 @@ UNSUPPORTED_TEXT = (
 
 TRANSCRIPTION_ERROR_TEXT = "Не удалось расшифровать аудио. Попробуй ещё раз."
 NO_TRANSCRIPTION_TEXT = "Нет сохранённой транскрипции. Сначала пришли голосовое или аудио."
+READY_TEXT = "Отправь следующий файл или голосовое — я готов к работе 🎙️"
 
 # Last transcription per user: {user_id: (text, datetime)}
 user_texts: dict[int, tuple[str, datetime]] = {}
+
+
+_TG_MAX_LEN = 4096
+
+
+async def _send_transcription(message: Message, text: str) -> None:
+    """Send transcription text, splitting into chunks if over Telegram's limit."""
+    # Telegram ignores multiple newlines — insert a space-only line as visual separator
+    tg_text = text.replace("\n\n", "\n \n")
+    if len(tg_text) <= _TG_MAX_LEN:
+        await message.answer(tg_text, reply_markup=_export_keyboard())
+        return
+    # Send all chunks except the last without keyboard
+    chunks = [tg_text[i:i + _TG_MAX_LEN] for i in range(0, len(tg_text), _TG_MAX_LEN)]
+    for chunk in chunks[:-1]:
+        await message.answer(chunk)
+    await message.answer(chunks[-1], reply_markup=_export_keyboard())
 
 
 def _export_keyboard() -> InlineKeyboardMarkup:
@@ -61,7 +79,7 @@ async def handle_voice(message: Message) -> None:
         text = transcriber.transcribe(data)
         dt = datetime.now(timezone.utc)
         user_texts[message.from_user.id] = (text, dt)
-        await message.answer(text, reply_markup=_export_keyboard())
+        await _send_transcription(message, text)
     except ValueError as e:
         await message.answer(str(e))
     except Exception:
@@ -80,7 +98,7 @@ async def handle_audio(message: Message) -> None:
         text = transcriber.transcribe(data)
         dt = datetime.now(timezone.utc)
         user_texts[message.from_user.id] = (text, dt)
-        await message.answer(text, reply_markup=_export_keyboard())
+        await _send_transcription(message, text)
     except ValueError as e:
         await message.answer(str(e))
     except Exception:
@@ -97,9 +115,8 @@ async def callback_export_txt(query: CallbackQuery) -> None:
         return
     text, dt = entry
     data, filename = exporter.to_txt(text, dt)
-    await query.message.answer_document(
-        BufferedInputFile(data, filename=filename),
-    )
+    await query.message.answer_document(BufferedInputFile(data, filename=filename))
+    await query.message.answer(READY_TEXT)
 
 
 @router.callback_query(F.data == "export_pdf")
@@ -111,9 +128,8 @@ async def callback_export_pdf(query: CallbackQuery) -> None:
         return
     text, dt = entry
     data, filename = exporter.to_pdf(text, dt)
-    await query.message.answer_document(
-        BufferedInputFile(data, filename=filename),
-    )
+    await query.message.answer_document(BufferedInputFile(data, filename=filename))
+    await query.message.answer(READY_TEXT)
 
 
 @router.message()

@@ -35,9 +35,13 @@ def to_pdf(text: str, dt: datetime) -> tuple[bytes, str]:
     pdf.cell(0, 8, dt.strftime("%Y-%m-%d %H:%M"), new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     pdf.ln(6)
 
-    # Body
+    # Body — first-line indent + left align + space between paragraphs
     pdf.set_font(_FONT_NAME, size=12)
-    pdf.multi_cell(0, 8, text)
+    paragraphs = text.split("\n\n")
+    for paragraph in paragraphs:
+        if paragraph.strip():
+            pdf.multi_cell(0, 7, "    " + paragraph.strip(), align="L")
+            pdf.ln(3)
 
     buf = io.BytesIO()
     pdf.output(buf)
